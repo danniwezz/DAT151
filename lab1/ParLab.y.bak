@@ -170,8 +170,8 @@ Exp16 : QualifiedConstant { AbsLab.EConst $1 }
       | 'false' { AbsLab.EFalse }
       | '(' Exp ')' { $2 }
 Exp15 :: { Exp }
-Exp15 : Id '[' Exp ']' { AbsLab.EIndex $1 $3 }
-      | Id '(' ListExp ')' { AbsLab.EApp $1 $3 }
+Exp15 : Exp15 '[' Exp ']' { AbsLab.EIndex $1 $3 }
+      | Exp15 '(' ListExp ')' { AbsLab.EApp $1 $3 }
       | Exp16 { $1 }
 Exp14 :: { Exp }
 Exp14 : Exp14 '.' Exp15 { AbsLab.Emem $1 $3 }

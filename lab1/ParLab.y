@@ -211,13 +211,12 @@ Exp8 : Exp8 '==' Exp9 { AbsLab.EEq $1 $3 }
 Exp4 :: { Exp }
 Exp4 : Exp4 '&&' Exp5 { AbsLab.EAnd $1 $3 } | Exp5 { $1 }
 Exp3 :: { Exp }
-Exp3 : Exp3 '||' Exp4 { AbsLab.EOr $1 $3 }
-     | Exp3 '=' Exp4 { AbsLab.EAss $1 $3 }
-     | Exp4 { $1 }
+Exp3 : Exp3 '||' Exp4 { AbsLab.EOr $1 $3 } | Exp4 { $1 }
 Exp2 :: { Exp }
-Exp2 : Exp3 '-=' Exp2 { AbsLab.EaDec $1 $3 }
+Exp2 : Exp3 '=' Exp2 { AbsLab.EAss $1 $3 }
+     | Exp3 '-=' Exp2 { AbsLab.EaDec $1 $3 }
      | Exp3 '+=' Exp2 { AbsLab.EaInc $1 $3 }
-     | Exp3 '?' Exp2 ':' Exp2 { AbsLab.EIfElse $1 $3 $5 }
+     | Exp2 '?' Exp3 ':' Exp3 { AbsLab.EIfElse $1 $3 $5 }
      | Exp3 { $1 }
 Exp1 :: { Exp }
 Exp1 : 'throw' Exp1 { AbsLab.EThrow $2 } | Exp2 { $1 }

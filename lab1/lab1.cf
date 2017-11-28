@@ -8,7 +8,7 @@ DFun.      	Def    	::= Type Id "(" [Arg] ")" "{" [Stm] "}" ;
 DFunEmpty.      Def    	::= Type Id "(" [Arg] ")" ";" ;
 DUsing.		Def    	::= "using" QualifiedConstant ";" ;
 DTypeDef.  	Def    	::= "typedef" Type Id ";" ;
---DStat.		Def    	::= Type Id "=" Exp ";";
+--DStat.	Def    	::= Type Id "=" Exp ";";
 DVariable. 	Def   	::= Decl ";" ;
 
 
@@ -19,40 +19,23 @@ terminator 	Stm "";
 
 
 
-AFunc.		Arg	  ::= Type;
-ADecl.	   	Arg 	  ::= Type Id;
-AConst.		Arg	  ::= "const" Type Id;
-AConstType.	Arg	  ::= "const" Type;
-AInitConst. 	Arg  	  ::= "const" Type Id "=" Exp;
-AInit.  	Arg  	  ::= Type Id "=" Exp;
+AFunc.			Arg	  	::= Type;
+ADecl.	   		Arg 		::= Type Id;
+AConst.			Arg	  	::= "const" Type Id;
+AConstType.		Arg	  	::= "const" Type;
+AInitConst. 		Arg  		::= "const" Type Id "=" Exp;
+AInit.  		Arg  		::= Type Id "=" Exp;
 
 
---DeclConst.	Decl  	::= "const" Type;	
---DeclConstId.	Decl  	::= "const" Type Id;
---Decl.		Decl  	::= Type Id;
---DeclsConst.	Decl  	::= "const" Type Id "," [Id];
---Decls.		Decl  	::= Type Id "," [Id];
---DeclInit.      	Decl	::= Type Id "=" Exp ;
---DeclInitConst.  Decl 	::= "const" Type Id "=" Exp ;
 
 DeclId.		IDecl		::= Id;
 IDeclAss.	IDecl		::= Id "=" Exp ;
 
 separator nonempty	IDecl	"," ;
 
-ConstDecl.		Decl ::= "const" Type [IDecl]  ;
-NoConstDecl. 	Decl ::= Type [IDecl]  ;
+ConstDecl.		Decl 	::= "const" Type [IDecl]  ;
+NoConstDecl. 	Decl 	::= Type [IDecl]  ;
 
-
-
-
-
---idea
---(:[]).   [Init_declarator] ::= Init_declarator ;
---(:).     [Init_declarator] ::= Init_declarator "," [Init_declarator] ;
-
---OnlyDecl.  Init_declarator ::= Decl ;
---InitDecl.  Init_declarator ::= Decl "=" Exp;
 
 
 
@@ -62,12 +45,12 @@ SExp. 		Stm 	::= Exp ";" ;
 SDecl.		Stm     ::= Decl ";" ;
 SReturn. 	Stm 	::= "return" Exp ";";
 SWhile.  	Stm    	::= "while" "(" Exp ")" Stm ;
-SDoWhile.  	Stm	::= "do" Stm "while" "(" Exp ")" ";" ;
+SDoWhile.  	Stm		::= "do" Stm "while" "(" Exp ")" ";" ;
 SBlock.  	Stm    	::= "{" [Stm] "}" ;
 SIfElse. 	Stm    	::= "if" "(" Exp ")" Stm "else" Stm ;
 SIf.	 	Stm    	::= "if" "(" Exp ")" Stm ;
-SFor.		Stm	::= "for" "(" Decl ";" Exp ";" Exp ")" Stm;
-SFuncConst.	Stm	::= "const" Type Id "=" Exp ";" ; 
+SFor.		Stm		::= "for" "(" Decl ";" Exp ";" Exp ")" Stm;
+SFuncConst.	Stm		::= "const" Type Id "=" Exp ";" ; 
 
 
 
@@ -105,10 +88,10 @@ EEq.     	Exp8   ::= Exp8  "==" Exp9 ;
 ENEq.    	Exp8   ::= Exp8  "!=" Exp9 ;
 EAnd.    	Exp4   ::= Exp4  "&&" Exp5 ;
 EOr.     	Exp3   ::= Exp3  "||" Exp4 ;
-EAss.    	Exp3   ::= Exp3 "=" Exp4 ;
+EAss.    	Exp2   ::= Exp3 "=" Exp2 ;
 EaDec. 		Exp2   ::= Exp3 "-=" Exp2 ;
 EaInc.  	Exp2   ::= Exp3 "+=" Exp2 ;
-EIfElse.  	Exp2   ::= Exp3 "?" Exp2 ":" Exp2 ;
+EIfElse.  	Exp2   ::= Exp2 "?" Exp3 ":" Exp3 ;
 EThrow.   	Exp1   ::= "throw" Exp1 ;	
 
 
