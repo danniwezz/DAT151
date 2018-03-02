@@ -126,9 +126,13 @@ public class Interpreter {
 		public void declVar(String id){
 			contexts.getFirst().put(id, new Undefined());
 		}
+		//Initialize a variable
+		public void initVar(String id, Value val){
+			contexts.getFirst().put(id, val);
+		}
 		
-		//initialize a variable
-		public void setVariable(String id, Value val){
+		//update a variable
+		public void updateVar(String id, Value val){
 			
 			for(HashMap<String, Value> currentScope : contexts){
 	
@@ -239,14 +243,14 @@ public class Interpreter {
 	    { // Code For SDecls Goes Here 
 	      
 	      for (String x: p.listid_){ 
-	    	  env.declVar(x);
+	    	  env.initVar(x, new Undefined());
 	      }
 	      return null;
 	    }
 	    public Value visit(CPP.Absyn.SInit p, Env env)
 	    { /* Code For SInit Goes Here */
-		   env.declVar(p.id_);
-		   env.setVariable(p.id_, executeExp(p.exp_, env));
+		  
+		   env.initVar(p.id_, executeExp(p.exp_, env));
 
 		   	return null;
 	    }
@@ -283,15 +287,15 @@ public class Interpreter {
 	   { /* Code For SBlock Goes Here */
 	    	
 	    	env.enterScope();
-	      for (Stm stm : p.liststm_){
+	    	for (Stm stm : p.liststm_){
 	    	  Value val = executeStm(stm, env);
 	    	  if(val != null){
 	    		  env.leaveScope();
 	    		  return (Value)val;
 	    	  }
-	      }
-	      env.leaveScope();
-	      return null;
+	    	}
+	    	env.leaveScope();
+	    	return null;
 	    }
 	    
 	    public Value visit(CPP.Absyn.SIfElse p, Env env)
@@ -385,7 +389,6 @@ public class Interpreter {
 	    		return new Undefined();
 	    	}
 	    	else{
-	    		//FAKTORISERA UT SKITEN
 	    		//Execute the function 
 	    		FunExecute funExecute = env.lookFun(p.id_);
 	    		//Eval args
@@ -400,7 +403,7 @@ public class Interpreter {
 	    		for(String id : funExecute.arguments){
 	    			
 	    			env.declVar(id);
-	    			env.setVariable(id, temp.remove());
+	    			env.updateVar(id, temp.remove());
 	    			
 	    		}
 	    		for(Stm stm : funExecute.statements){
@@ -422,11 +425,11 @@ public class Interpreter {
 		    
 		     Value val = env.lookVar(p.id_);
 		     if(val.isInt()){
-		    	 env.setVariable(p.id_, new IntegerValue(val.getInt() + 1 ));
+		    	 env.updateVar(p.id_, new IntegerValue(val.getInt() + 1 ));
 		    	 return val;
 		     }
 		     else{
-		    	 env.setVariable(p.id_, new DoubleValue(val.getDouble() + 1.0 ));
+		    	 env.updateVar(p.id_, new DoubleValue(val.getDouble() + 1.0 ));
 		    	 return val;
 		     }
 	   }
@@ -436,11 +439,11 @@ public class Interpreter {
 		    
 		     Value val = env.lookVar(p.id_);
 		     if(val.isInt()){
-		    	 env.setVariable(p.id_, new IntegerValue(val.getInt() - 1 ));
+		    	 env.updateVar(p.id_, new IntegerValue(val.getInt() - 1 ));
 		    	 return val;
 		     }
 		     else{
-		    	 env.setVariable(p.id_, new DoubleValue(val.getDouble() - 1.0 ));
+		    	 env.updateVar(p.id_, new DoubleValue(val.getDouble() - 1.0 ));
 		    	 return val;
 		     }  
 	    }
@@ -449,10 +452,10 @@ public class Interpreter {
 	    { /* Code For EPreIncr Goes Here */
 	      Value val = env.lookVar(p.id_);
 	      if(val.isInt()){
-	    	  env.setVariable(p.id_, new IntegerValue(val.getInt() + 1));
+	    	  env.updateVar(p.id_, new IntegerValue(val.getInt() + 1));
 	    	  return env.lookVar(p.id_);
 	      } else {
-	    	  env.setVariable(p.id_, new DoubleValue(val.getDouble() + 1));
+	    	  env.updateVar(p.id_, new DoubleValue(val.getDouble() + 1));
 	    	  return env.lookVar(p.id_);
 	      }
 	    }
@@ -460,10 +463,10 @@ public class Interpreter {
 	    { /* Code For EPreDecr Goes Here */
 		      Value val = env.lookVar(p.id_);
 		      if(val.isInt()){
-		    	  env.setVariable(p.id_, new IntegerValue(val.getInt() - 1));
+		    	  env.updateVar(p.id_, new IntegerValue(val.getInt() - 1));
 		    	  return env.lookVar(p.id_);
 		      } else {
-		    	  env.setVariable(p.id_, new DoubleValue(val.getDouble() - 1.0));
+		    	  env.updateVar(p.id_, new DoubleValue(val.getDouble() - 1.0));
 		    	  return env.lookVar(p.id_);
 		      }
 	    }
@@ -779,7 +782,7 @@ public class Interpreter {
 
 	    	Value val = executeExp(p.exp_, env);
 	    	
-	    	env.setVariable(p.id_, val);
+	    	env.updateVar(p.id_, val);
 	    	return val;
 	    }
 	    

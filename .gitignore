@@ -4,4 +4,6 @@
 /lab2/CPP
 *.java~
 *.hs~
+*.class
+*.tar.gz
 

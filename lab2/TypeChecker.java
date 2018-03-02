@@ -148,8 +148,13 @@ public class TypeChecker {
 			funType.args = new LinkedList<TypeCode>();
 			funType.returnType = getTypeCode(p.type_);
 			
-			
+			ADecl temp;
 			for( Arg arg : p.listarg_){
+				temp = (ADecl)arg;
+				if(getTypeCode(temp.type_) == TypeCode.Type_void){
+					
+					throw new TypeException("Error DFun: Void arguments are not accepted");
+				}
 				funType.args.addLast(getTypeCode(((ADecl)arg).type_));
 			}
 			
@@ -210,6 +215,9 @@ public class TypeChecker {
 
 		public Object visit(SDecls p, Env env){
 			TypeCode type = getTypeCode(p.type_);
+			if(type == TypeCode.Type_void){
+				throw new TypeException("SDecls error: variable cannot be void");
+			}
 			for ( String s : p.listid_){
 			env.updateVar(s, type);
 			}
