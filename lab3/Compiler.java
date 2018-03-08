@@ -1,6 +1,5 @@
 import java.io.*;
 import java.util.*;
-
 import CPP.Absyn.*;
 
 public class Compiler
@@ -8,93 +7,48 @@ public class Compiler
   // The output of the compiler is a list of strings.
   LinkedList<String> output;
 
-  
-  public ListArg intArg = new ListArg(); 
-  
-   private class Env {
-	     // Signature mapping function names to their JVM name and type
-        public HashMap<String , FunType> sig ; 
-		 // Context mapping variable identifiers to their type.
-        public LinkedList<HashMap<String , Integer >> cxt ; 
-        public LinkedList<Integer> stackSize ;
-        public Integer limitStack;
-        public Integer localLabelCount ; 
-        public Type returnType ; 
-        public int returnFlag ; 
-        public Env() 
-        {
-            sig = new HashMap<String , FunType>() ;
-            cxt = new LinkedList<HashMap<String , Integer>>();
-            stackSize = new LinkedList<Integer>() ; 
-            cxt.addFirst(new HashMap<String , Integer>());
-            stackSize.addFirst(0);
-            localLabelCount = 0 ; 
-            limitStack = 0;
-        }
-        public Integer lookupVar (String id)
-        {
-            Integer ans = 0 ; 
-            for(HashMap<String ,Integer> scope : this.cxt)
-            {
-                ans = scope.get(id);
-                if(ans != null)
-                    break;
-            }
-            return ans ; 
-        } 
-        public Integer lookupLabelCount()
-        {
-            return localLabelCount;
-        }
-        public void addLabelCount()
-        {
-           localLabelCount  ++ ; 
-        }
-        public void addVar(String id)
-        {
-            HashMap<String , Integer > scope = cxt.getFirst();
-            Integer number = stackSize.getFirst();
-            scope.put(id , number);
-            number = number +1 ; 
-            stackSize.removeFirst();
-            stackSize.addFirst(number); 
-        }
-        public boolean isFunDecl (String id )
-        {
-            return sig.containsKey(id); 
-        }
-        public void updateFunction (String id , FunType funType)
-        {
-            sig.put(id , funType) ; 
-        }
-        public FunType lookupFun (String id)
-        {
-            FunType funType = sig.get(id) ; 
-            return funType ; 
-        }
-        public void enterScope()
-        {
-            cxt.addFirst(new HashMap<String , Integer>());
-        }
-        public void leaveScope()
-        {
-            cxt.removeFirst();
-        }
-    }
-  
+  // Signature mapping function names to their JVM name and type
+  Map<String,Fun> sig;
 
-  private Env env = new Env();
+  // Context mapping variable identifiers to their type.
+  List<Map<String,CxtEntry>> cxt;
+
+  // Next free address for local variable;
+  int nextLocal = 0;
+
+  // Number of locals needed for current function
+  int limitLocals = 0;
+
+  // Maximum stack size needed for current function
+  int limitStack = 0;
+
+  // Current stack size
+  int currentStack = 0;
+
+  // Global counter to get next label;
+  int nextLabel = 0;
+  
+  //returnflag
+  boolean returnFlag = false;
+
+  // Variable information
+  public class CxtEntry {
+    final Type    type;
+    final Integer addr;
+    CxtEntry (Type t, Integer a) { type = t; addr = a; }
+  }
+
   // Share type constants
-  public final Type BOOL   = new CPP.Absyn.Type_bool();
-  public final Type INT    = new CPP.Absyn.Type_int();
-  public final Type DOUBLE = new CPP.Absyn.Type_double();
-  public final Type VOID   = new CPP.Absyn.Type_void();
+  public final Type BOOL   = new Type_bool  ();
+  public final Type INT    = new Type_int   ();
+  public final Type DOUBLE = new Type_double();
+  public final Type VOID   = new Type_void  ();
 
   // name should be just the class name without file extension.
   public void compile(String name, CPP.Absyn.Program p) {
     // Initialize output
     output = new LinkedList();
-    
+
     // Output boilerplate
     output.add(".class public " + name + "\n");
     output.add(".super java/lang/Object\n");
@@ -119,32 +73,41 @@ public class Compiler
     output.add(".end method\n");
     output.add("\n");
 
+    // Create signature
+    sig = new TreeMap();
     // Built-in functions
-    intArg = new ListArg();    
-    intArg.add (new ADecl(INT   , "x"));
-    env.updateFunction("printInt",    new FunType ("Runtime/printInt", VOID, intArg));
-    env.updateFunction("readInt",    new FunType ("Runtime/readInt",INT  , intArg));
+    ListArg    intArg = 	new ListArg();    intArg.add (new ADecl(INT   , "x"));
+    sig.put("printInt",new Fun("Runtime/printInt", new FunType (VOID, intArg)));
+    sig.put("readInt", new Fun("Runtime/readInt", new FunType (INT,new  ListArg())));
 
     // User-defined functions
     for (Def d: ((PDefs)p).listdef_) {
-	    DFun def = (DFun)d;
-		Type returnType = def.type_;
-		env.updateFunction(def.id_ , new FunType(name + "/"+def.id_ , returnType, def.listarg_ ));
+      DFun def = (DFun)d;
+      sig.put(def.id_,
+        new Fun(name + "/" + def.id_, new FunType(def.type_, def.listarg_)));
     }
-	
 
     // Run compiler
     p.accept(new ProgramVisitor(), null);
-
-    // Output result
     try{
-    FileWriter write = new FileWriter("answer.cc");
-    for (String s: output) {
-      System.out.print(s);
-      write.write(s);
+    	FileWriter writer = new FileWriter(name + ".j");
+
+
+        for (String s: output) {
+          System.out.print(s);
+          writer.write(s);
+        }
+        
+        writer.close();
+    }catch(IOException e){
+    	e.printStackTrace();
     }
-    write.close();
-    }catch(IOException e){}
+    // Output result
+    for (String s: output) {
+        System.out.print(s);
+
+      }
+
   }
 
   public class ProgramVisitor implements Program.Visitor<Void,Void>
@@ -162,15 +125,21 @@ public class Compiler
   {
     public Void visit(CPP.Absyn.DFun p, Void arg)
     {
+      // reset state for new function
+      cxt = new LinkedList();
+      cxt.add(new TreeMap());
+      nextLocal = 0;
+      limitLocals = 0;
+      limitStack  = 0;
+      currentStack = 0;
 
       // save output so far and reset output;
       LinkedList<String> savedOutput = output;
       output = new LinkedList();
-		
+
       // Compile function
 
       // Add function parameters to context
-      env.enterScope();
       for (Arg x: p.listarg_)
         x.accept (new ArgVisitor(), null);
       for (Stm s: p.liststm_)
@@ -179,18 +148,35 @@ public class Compiler
       // add new Output to old output
       LinkedList<String> newOutput = output;
       output = savedOutput;
+      returnFlag = true;
+      
+      if(p.type_ instanceof Type_void || p.id_.equals("main")){
+    	  returnFlag = false;
+      }
 
-      FunType f = new FunType(p.id_, p.type_, p.listarg_);
+      Fun f = new Fun(p.id_, new FunType(p.type_, p.listarg_));
       output.add("\n.method public static " + f.toJVM() + "\n");
-      output.add("  .limit locals " + env.localLabelCount + "\n");
-      output.add("  .limit stack " + env.limitStack + "\n\n");
+      output.add("  .limit locals " + limitLocals + "\n");
+      output.add("  .limit stack " + limitStack + "\n\n");
       for (String s: newOutput) {
         output.add("  " + s);
       }
+      if(p.type_ instanceof Type_void){
+    	  output.add("return");
+      }
+      if(!returnFlag){
+    	  finalReturn(new Type_int());
+      }
       output.add("\n.end method\n");
-      env.stackSize.removeFirst();
-      env.leaveScope();
       return null;
+    }
+  }
+
+  public void finalReturn (Type t) {
+    emit (new Comment("default return\n"));
+    if (!(t instanceof Type_void)){
+    	emit(new IConst(0));
+    	emit(new Return(t));
     }
   }
 
@@ -198,15 +184,11 @@ public class Compiler
   {
     public Void visit(CPP.Absyn.ADecl p, Void arg)
     {
-    	
-    	env.addVar(p.id_);
-    	return null;
+      newVar (p.id_, p.type_);
+      return null;
     }
   }
 
-  void nyiStm (CPP.Absyn.Stm s) {
-    throw new RuntimeException ("Not yet implemented: " + CPP.PrettyPrinter.print(s));
-  }
 
   public class StmVisitor implements Stm.Visitor<Void,Void>
   {
@@ -214,19 +196,17 @@ public class Compiler
     public Void visit(CPP.Absyn.SExp p, Void arg)
     {
       p.exp_.accept (new ExpVisitor(), null);
-      emit (new Pop (p.exp_.getType()));
       return null;
     }
 
     // int x,y,z;
     public Void visit(CPP.Absyn.SDecls p, Void arg)
     {
-    	for (String x: p.listid_){
-    	  env.addVar(x);
-    	  if(p.type_.equals(INT)){
-    		  emit(new IConst(0));
-    		  emit( new Store(p.type_,env.lookupVar(x)));
-    	  }
+      for (String x: p.listid_){
+    	  emit(new IConst(0));
+    	  newVar (x, p.type_);
+    	  CxtEntry ce = lookupVar(x);
+    	  emit(new Store(p.type_, ce.addr));
       }
       return null;
     }
@@ -234,347 +214,389 @@ public class Compiler
     // int x = e;
     public Void visit(CPP.Absyn.SInit p, Void arg)
     {
-      
+      newVar (p.id_, p.type_);
       p.exp_.accept(new ExpVisitor(), null);
-      env.addVar(p.id_);
-      if(p.type_.equals(INT)){
-          emit (new Store (p.type_, env.lookupVar(p.id_)));
-      }
-      else if(p.type_.equals(BOOL)){
-          emit (new Store (p.type_, env.lookupVar(p.id_)));
-      }
-
+      CxtEntry ce = lookupVar(p.id_);
+      emit (new Store (ce.type, ce.addr));
       return null;
     }
 
     // return e;
     public Void visit(CPP.Absyn.SReturn p, Void arg)
     {
-      p.exp_.accept (new ExpVisitor(), null);
-      emit (new Return (p.exp_.getType()));
-      return null;
+    	p.exp_.accept (new ExpVisitor(), null);
+    	emit (new Return (p.exp_.getType()));
+    	returnFlag = true;
+    	return null;
     }
 
     // while (e) s
-    //ASK TEACHER
     public Void visit(CPP.Absyn.SWhile p, Void arg)
     {
-      // p.exp_
-      // p.stm_
-
-    	Integer startLabel = env.lookupLabelCount();
-    	env.addLabelCount();
-    	Integer endLabel = env.lookupLabelCount();
-    	env.addLabelCount();
-    	emitToLabel(new Label(startLabel));
+    	int startLabel = nextLabel;
+    	nextLabel++;
+    	int endLabel = nextLabel;
+    	nextLabel++;
+    	emit(new Label(startLabel));
     	p.exp_.accept(new ExpVisitor(), null);
     	emit(new IConst(0));
-    	emit(new IfIcmpEq(endLabel));
+    	emit(new IfIcmpEq(startLabel));
     	p.stm_.accept(new StmVisitor(), null);
     	emit(new Goto(startLabel));
-    	emitToLabel(new Label(endLabel));
+    	emit(new Label(endLabel));    	
+    	
+    	
     	return null;
     }
 
     // { ss }
     public Void visit(CPP.Absyn.SBlock p, Void arg)
     {
-    	env.enterScope();
-      for (Stm s: p.liststm_) {
-    	  s.accept(new StmVisitor(),null);
-      }
-      env.leaveScope();
-      return null;
+    	cxt.addFirst(new TreeMap());
+    	for (Stm s: p.liststm_) {
+    		s.accept(new StmVisitor(), arg);
+    	}
+    	cxt.remove(0);
+    	return null;
     }
 
     // if (e) s else s'
-	//Ask teacher
     public Void visit(CPP.Absyn.SIfElse p, Void arg)
     {
-    	Integer ifElseLabel = env.lookupLabelCount();
-    	env.addLabelCount();
-    	Integer endLabel = env.lookupLabelCount();
-    	env.addLabelCount();
-    	p.exp_.accept(new ExpVisitor(), arg);
-    	emit(new IConst(0));
-    	emit(new IfIcmpEq(ifElseLabel));
-    	p.stm_1.accept(new StmVisitor(), arg);
-    	emit(new Goto(endLabel));
-    	p.stm_2.accept(new StmVisitor(), arg);
-    	emitToLabel(new Label(endLabel));
-    	return null;
+    	Integer elseLabel = nextLabel;
+    	nextLabel++;
+    	Integer endLabel = nextLabel;
+    	nextLabel++;
+    	
+	    p.exp_.accept(new ExpVisitor(), arg);
+	    emit(new IConst(0));
+	    p.stm_1.accept(new StmVisitor(), arg);
+	    emit(new Goto(endLabel));
+	    p.stm_2.accept(new StmVisitor(), arg);
+	    emit(new Label(endLabel));
+	    return null;
     }
   }
 
-  void nyiExp (CPP.Absyn.Exp e) {
-    throw new RuntimeException ("Not yet implemented: " + CPP.PrettyPrinter.print(e));
-  }
-  
-  
 
-  public class ExpVisitor implements Exp.Visitor<Integer,Void>
+  public class ExpVisitor implements Exp.Visitor<Void,Void>
   {
     // true
-    public Integer visit(CPP.Absyn.ETrue p, Void arg)
+    public Void visit(CPP.Absyn.ETrue p, Void arg)
     {
-      emit(new IConst(1));
-      return null;
+    	emit(new IConst(1));
+    	return null;
     }
 
-    public Integer visit(CPP.Absyn.EFalse p, Void arg)
+    // false
+    public Void visit(CPP.Absyn.EFalse p, Void arg)
     {
     	emit(new IConst(0));
     	return null;
     }
 
-    public Integer visit(CPP.Absyn.EInt p, Void arg)
+    // 5
+    public Void visit(CPP.Absyn.EInt p, Void arg)
     {
       emit (new IConst (p.integer_));
       return null;
     }
-    public Integer visit(CPP.Absyn.EDouble p, Void arg)
+
+    // 3.14
+    public Void visit(CPP.Absyn.EDouble p, Void arg)
     {
-      //Do not handle doubles
+      // p.double_
       return null;
     }
 
-
-
-    public Integer visit(CPP.Absyn.EId p, Void arg)
+    // x
+    public Void visit(CPP.Absyn.EId p, Void arg)
     {
-      Integer adr = env.lookupVar (p.id_);
-      emit (new Load(INT, adr));
-      return adr;
+      CxtEntry ce = lookupVar (p.id_);
+      emit (new Load (ce.type, ce.addr));
+      return null;
     }
 
-
-    public Integer visit(CPP.Absyn.EApp p, Void arg)
+    // f (e1, e2)
+    public Void visit(CPP.Absyn.EApp p, Void arg)
     {
       for (Exp e: p.listexp_){
-    	  e.accept (this, null);
+    	  e.accept(new ExpVisitor(), arg);
       }
-      FunType ft = env.lookupFun(p.id_);
-      emit(new Call(new Fun(p.id_, ft)));
-      if(ft.returnType.equals(VOID)){
-    	  emit(new IConst(0));
-      }
+      Fun f = sig.get(p.id_);
+      emit (new Call(f));
       return null;
     }
-    public Integer visit(CPP.Absyn.EPostIncr p, Void arg)
-    {
-    	
-    	//fix this 
-    	Integer addr = p.exp_.accept(new ExpVisitor(), null);
-    	emit(new Load(p.exp_.getType(), addr));
-    	emit(new Dup(p.exp_.getType()));
-    	emit (new IConst (1));
-    	emit(new Add(p.exp_.getType()));
-    	if(addr != null){
-    		emit(new Store(INT, addr));
-    	}
-    	return null;
+
+    // x++
+    public Void visit(CPP.Absyn.EPostIncr p, Void arg)
+    {    	
+      String x = p.id_;
+      CxtEntry ce = lookupVar (x);
+      emit (new Load (ce.type, ce.addr));
+      emit (new Dup (ce.type));
+      emit (new IConst (1));
+      emit (new Add (ce.type));
+      emit (new Store (ce.type, ce.addr));
+      return null;
     }
 
- 
-    public Integer visit(CPP.Absyn.EPostDecr p, Void arg)
+    // x--
+    public Void visit(CPP.Absyn.EPostDecr p, Void arg)
     {
-    	//fix this 
-    	Integer addr = p.exp_.accept(new ExpVisitor(), null);
-    	addr = p.exp_.accept(new ExpVisitor(), null);
-    	emit (new IConst (1));
-    	emit(new Sub(INT));
-    	if(addr != null){
-    		emit(new Store(INT, addr));
-    	}
-    	return null;
+    	String x = p.id_;
+        CxtEntry ce = lookupVar (x);
+        emit (new Load (ce.type, ce.addr));
+        emit (new Dup (ce.type));
+        emit (new IConst (1));
+        emit (new Sub (ce.type));
+        emit (new Store (ce.type, ce.addr));
+        return null;
     }
-    
 
     // ++x
-    public Integer visit(CPP.Absyn.EPreIncr p, Void arg)
+    public Void visit(CPP.Absyn.EPreIncr p, Void arg)
     {
-    	Integer addr = p.exp_.accept(new ExpVisitor(), null);
-    	emit (new IConst (1));
-    	emit(new Add(INT));
-    	if(addr != null){
-    		emit(new Store(INT, addr));
-    		emit(new Load(INT, addr));
-    	}
-    	return null;
+    	String x = p.id_;
+        CxtEntry ce = lookupVar (x);
+        emit (new Load (ce.type, ce.addr));
+        emit (new IConst (1));
+        emit (new Add (ce.type));
+        emit (new Store (ce.type, ce.addr));
+        emit (new Load  (ce.type, ce.addr));
+        return null;
     }
 
     // --x
-    public Integer visit(CPP.Absyn.EPreDecr p, Void arg)
+    public Void visit(CPP.Absyn.EPreDecr p, Void arg)
     {
-    	Integer addr = p.exp_.accept(new ExpVisitor(), null);
-    	emit (new IConst (1));
-    	emit(new Sub(INT));
-    	if(addr != null){
-    		emit(new Store(INT, addr));
-    		emit(new Load(INT, addr));
-    	}
-    	return null;
+        String x = p.id_;
+        CxtEntry ce = lookupVar (x);
+        emit (new Load (ce.type, ce.addr));
+        emit (new IConst (1));
+        emit (new Sub (ce.type));
+        emit (new Store (ce.type, ce.addr));
+        emit (new Load  (ce.type, ce.addr));
+        return null;
     }
 
-
-///////////////////////////////////////////////////7
-
     // e * e'
-    public Integer visit(CPP.Absyn.ETimes p, Void arg)
+    public Void visit(CPP.Absyn.ETimes p, Void arg)
     {
-    	p.exp_1.accept(new ExpVisitor(), arg);
-    	p.exp_2.accept(new ExpVisitor(), arg);
-    	emit(new Mul(p.exp_1.getType()));
-    	return null;
+    	
+	    p.exp_1.accept(new ExpVisitor(), arg);
+	    p.exp_2.accept(new ExpVisitor(), arg);
+	    emit(new Mul(new Type_int()));
+	    return null;
     }
 
     // e / e'
-    public Integer visit(CPP.Absyn.EDiv p, Void arg)
+    public Void visit(CPP.Absyn.EDiv p, Void arg)
     {
-      p.exp_1.accept(new ExpVisitor(), arg);
-      p.exp_2.accept(new ExpVisitor(), arg);
-      emit(new Div(p.exp_1.getType()));
-      return null;
+    	p.exp_1.accept(new ExpVisitor(), arg);
+	    p.exp_2.accept(new ExpVisitor(), arg);
+	    emit(new Div(new Type_int()));
+	    return null;
     }
 
     //  e + e'
-    public Integer visit(CPP.Absyn.EPlus p, Void arg)
+    public Void visit(CPP.Absyn.EPlus p, Void arg)
     {
-      p.exp_1.accept(new ExpVisitor(), arg);
-      p.exp_2.accept(new ExpVisitor(), arg);
-      emit(new Add(p.exp_1.getType()));
-      return null;
+    	p.exp_1.accept(new ExpVisitor(), arg);
+	    p.exp_2.accept(new ExpVisitor(), arg);
+	    emit(new Add(new Type_int()));
+	    return null;
     }
 
     // e - e'
-    public Integer visit(CPP.Absyn.EMinus p, Void arg)
+    public Void visit(CPP.Absyn.EMinus p, Void arg)
     {
-      p.exp_1.accept(new ExpVisitor(), arg);
-      p.exp_2.accept(new ExpVisitor(), arg);    		
-      emit(new Sub(p.exp_1.getType()));
-      return null;
+    	p.exp_1.accept(new ExpVisitor(), arg);
+	    p.exp_2.accept(new ExpVisitor(), arg);
+	    emit(new Sub(new Type_int()));
+	    return null;
     }
 
     // e < e'
-    public Integer visit(CPP.Absyn.ELt p, Void arg)
+    public Void visit(CPP.Absyn.ELt p, Void arg)
     {
-      p.exp_1.accept(new ExpVisitor(), arg);
-      p.exp_2.accept(new ExpVisitor(), arg);
-      Integer tLabel = env.lookupLabelCount();
-      env.addLabelCount();
-      Integer endLabel = env.lookupLabelCount();
-      env.addLabelCount();
-      emit(new IfIcmpLt(tLabel));
-      emit(new IConst(0));
-      emit(new Goto(endLabel));
-      emitToLabel(new Label(tLabel));
-      emit(new IConst(1));
-      emitToLabel(new Label(endLabel));
-      
-      return null;
+    	p.exp_1.accept(new ExpVisitor(), arg);
+        p.exp_2.accept(new ExpVisitor(), arg);
+        Integer trueLabel = nextLabel;
+        nextLabel++;
+        Integer falseLabel = nextlabel;
+        nextLabel++;
+        emit(new IfIcmpLt(new Type_int(), nextLabel));
+        nextLabel++;
+        return null;
     }
 
     // e > e'
-    public Integer visit(CPP.Absyn.EGt p, Void arg)
+    public Void visit(CPP.Absyn.EGt p, Void arg)
     {
-      p.exp_1.accept(new ExpVisitor(), arg);
-      p.exp_2.accept(new ExpVisitor(), arg);
-
-      
-      nyiExp(p); return null;
+    	p.exp_1.accept(new ExpVisitor(), arg);
+        p.exp_2.accept(new ExpVisitor(), arg);
+        Integer trueLabel = nextLabel;
+        nextLabel++;
+        Integer falseLabel = nextlabel;
+        nextLabel++;
+        emit(new IfIcmpGt(new Type_int(), nextLabel));
+        nextLabel++;
+        return null;
     }
 
     // e <= e'
-    public Integer visit(CPP.Absyn.ELtEq p, Void arg)
+    public Void visit(CPP.Absyn.ELtEq p, Void arg)
     {
-      p.exp_1.accept(new ExpVisitor(), arg);
-      p.exp_2.accept(new ExpVisitor(), arg);
-      nyiExp(p); return null;
+    	p.exp_1.accept(new ExpVisitor(), arg);
+        p.exp_2.accept(new ExpVisitor(), arg);
+        Integer trueLabel = nextLabel;
+        nextLabel++;
+        Integer falseLabel = nextlabel;
+        nextLabel++;
+        emit(new IfIcmpLe(new Type_int(), nextLabel));
+        nextLabel++;
+        return null;
     }
 
     // e >= e'
-    public Integer visit(CPP.Absyn.EGtEq p, Void arg)
+    public Void visit(CPP.Absyn.EGtEq p, Void arg)
     {
-      p.exp_1.accept(new ExpVisitor(), arg);
-      p.exp_2.accept(new ExpVisitor(), arg);
-      nyiExp(p); return null;
+    	p.exp_1.accept(new ExpVisitor(), arg);
+        p.exp_2.accept(new ExpVisitor(), arg);
+        Integer trueLabel = nextLabel;
+        nextLabel++;
+        Integer falseLabel = nextlabel;
+        nextLabel++;
+        emit(new IfIcmpGe(new Type_int(), nextLabel));
+        nextLabel++;
+        return null;
     }
 
     // e == e'
-    public Integer visit(CPP.Absyn.EEq p, Void arg)
+    public Void visit(CPP.Absyn.EEq p, Void arg)
     {
-      p.exp_1.accept(new ExpVisitor(), arg);
-      p.exp_2.accept(new ExpVisitor(), arg);
-      nyiExp(p); return null;
+    	p.exp_1.accept(new ExpVisitor(), arg);
+        p.exp_2.accept(new ExpVisitor(), arg);
+        Integer trueLabel = nextLabel;
+        nextLabel++;
+        Integer falseLabel = nextlabel;
+        nextLabel++;
+        emit(new IfIcmpEq(new Type_int(), nextLabel));
+        nextLabel++;
+        return null;
     }
 
     // e != e'
-    public Integer visit(CPP.Absyn.ENEq p, Void arg)
+    public Void visit(CPP.Absyn.ENEq p, Void arg)
     {
-      p.exp_1.accept(new ExpVisitor(), arg);
-      p.exp_2.accept(new ExpVisitor(), arg);
-      nyiExp(p); return null;
+    	p.exp_1.accept(new ExpVisitor(), arg);
+        p.exp_2.accept(new ExpVisitor(), arg);
+        Integer trueLabel = nextLabel;
+        nextLabel++;
+        Integer falseLabel = nextlabel;
+        nextLabel++;
+        emit(new IfIcmpNe(new Type_int(), nextLabel));
+        nextLabel++;
+        return null;
     }
 
     // e && e'
-    public Integer visit(CPP.Absyn.EAnd p, Void arg)
+    public Void visit(CPP.Absyn.EAnd p, Void arg)
     {
-      p.exp_1.accept(new ExpVisitor(), arg);
-      p.exp_2.accept(new ExpVisitor(), arg);
-      nyiExp(p); return null;
+    	Integer falseLabel = nextLabel;
+    	nextLabel++;
+    	Integer endLabel = nextLabel;
+    	nextLabel++;
+    	
+    	p.exp_1.accept(new ExpVisitor(), arg);
+    	emit(new IfEq(falseLabel));
+    	p.exp_2.accept(new ExpVisitor(), arg);
+    	emit(new IConst(1));
+    	emit(new Goto(endLabel));
+    	emit(new Label(falseLabel));
+    	emit(new IConst(0));
+    	emit(new Label(endLabel));     
+    	return null;
     }
 
     // e || e'
-    public Integer visit(CPP.Absyn.EOr p, Void arg)
+    public Void visit(CPP.Absyn.EOr p, Void arg)
     {
-      p.exp_1.accept(new ExpVisitor(), arg);
-      p.exp_2.accept(new ExpVisitor(), arg);
-      nyiExp(p); return null;
+    	Integer trueLabel = nextLabel;
+    	nextLabel++;
+    	Integer endLabel = nextLabel;
+    	nextLabel++;
+    	
+    	p.exp_1.accept(new ExpVisitor(), arg);
+    	emit(new IfEq(falseLabel));
+    	p.exp_2.accept(new ExpVisitor(), arg);
+    	emit(new IConst(0));
+    	emit(new Goto(endLabel));
+    	emit(new Label(trueLabel));
+    	emit(new IConst(1));
+    	emit(new Label(endLabel));     
+    	return null;
     }
 
     // x = e
-    public Integer visit(CPP.Absyn.EAss p, Void arg)
+    public Void visit(CPP.Absyn.EAss p, Void arg)
     {
       String x = TypeChecker.isVar(p.exp_1);
-      p.exp_2.accept(new ExpVisitor(), arg);
-      nyiExp(p); return null;
+      Integer nr =  p.exp_2.accept(new ExpVisitor(), arg);
+      p.exp2_.accept(new ExpVisitor(), arg);
+      emit(new Store(nr));
+      emit(new Load(nr));
+      return null;
     }
   }
-//////////////////////////////////////////////////////////////
+
   void emit (Code c) {
     String line = c.accept(new CodeToJVM());
     if (!line.isEmpty()) output.add(line);
     adjustStack(c);
   }
-  
-  void emitToLabel(Label label){
-	  String line = label.toJVM();
-	  if(line.isEmpty()){
-		  output.add(line);
-	  }
+
+  void newVar(String x, Type t) {
+    cxt.get(0).put(x, new CxtEntry(t, nextLocal));
+    limitLocals++;
+    limitStack++;
+    nextLocal++;
+  }
+
+  CxtEntry lookupVar (String x) {
+    for(Map context : cxt){
+    	CxtEntry ent = (CxtEntry)context.get(x);
+    	if(ent != null){
+    		return ent;
+    	}
+    }
+    if(cxt.get(0) == null){
+		throw new RuntimeError("LookupVar: context is empty");
+	} else{
+		for(Map context : ctx){
+			Iterator it = cxt.entrySet().iterator();
+			while(it.hasNext()){
+				Map.Entry pair = (Map.Entry)it.next();
+				it.remove();
+			}
+		}
+	}
+    throw new RuntimeException ("Impossible: unbound variable " + x);
   }
 
   // update limitStack, currentStack according to instruction
   void adjustStack(Code c) {
     c.accept(new AdjustStack());
   }
-  
-
 
   void incStack(Type t) {
-	int stackSz = env.stackSize.getFirst();
-    stackSz = stackSz + t.accept(new Size(), null);
-    if (stackSz > env.limitStack) env.limitStack = stackSz;
-    env.stackSize.removeFirst();
-    env.stackSize.addFirst(stackSz);
+    currentStack = currentStack + t.accept(new Size(), null);
+    if (currentStack > limitStack) limitStack = currentStack;
   }
 
   void decStack(Type t) {
-		int stackSz = env.stackSize.getFirst();
-			    stackSz = stackSz - t.accept(new Size(), null);
-			    if (stackSz > env.limitStack) env.limitStack = stackSz;
-			    env.stackSize.removeFirst();
-			    env.stackSize.addFirst(stackSz);
+    currentStack = currentStack - t.accept(new Size(), null);
   }
 
   // Calculate the size in words for an element of the give type
@@ -591,19 +613,9 @@ public class Compiler
     public Void visit (Store a)  { decStack(a.type); return null; }
     public Void visit (Load  a)  { incStack(a.type); return null; }
     public Void visit (IConst c) { incStack(INT);    return null; }
-    public Void visit (IfIcmpLt c)  {return null;}
-    public Void visit (IfIcmpLe c)  {return null;}
-    public Void visit (IfIcmpEq c)  {return null;}
-    public Void visit (IfIcmpGt c)  {return null;}
-    public Void visit (IfIcmpGe c)  {return null;}
-    public Void visit (IfIcmpNe c)  {return null;}
-    public Void visit (Goto c)	 	{return null;}
-    public Void visit (IfEq c)		{return null;}
     public Void visit (Dup c)    { incStack(c.type); return null; }
     public Void visit (Pop c)    { decStack(c.type); return null; }
     public Void visit (Return c) { decStack(c.type); return null; }
-    
-
 
     public Void visit (Call c)   {
       FunType ft = c.fun.funType;
@@ -612,10 +624,5 @@ public class Compiler
       return null;
     }
     public Void visit (Add c)    { decStack(c.type); return null; }
-    public Void visit (Mul c)    { decStack(c.type); return null; }
-    public Void visit (Div c)    { decStack(c.type); return null; }
-    public Void visit (Sub c)    { decStack(c.type); return null; }
   }
-  
- 
 }

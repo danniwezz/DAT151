@@ -57,7 +57,7 @@ public class TypeChecker {
 				return funcType;
 			}
 		}
-        //checks if the variable is already declared
+//checks if the variable is already declared
 		public void updateVar(String id, TypeCode ty){
 			HashMap<String, TypeCode> currentScope = contexts.getFirst();
 			if (isVarDecl(id)) {
@@ -76,11 +76,6 @@ public class TypeChecker {
 		}
 
 	}
-	 public static String isVar (Exp e) {
-		    if (e instanceof EId) {
-		      return ((EId)e).id_;
-		    } else throw new TypeException("expected variable, found " + e);
-		  }
 
 	public void typecheck(Program p) {
 		PDefs defs = (PDefs) p;
@@ -153,8 +148,13 @@ public class TypeChecker {
 			funType.args = new LinkedList<TypeCode>();
 			funType.returnType = getTypeCode(p.type_);
 			
-			
+			ADecl temp;
 			for( Arg arg : p.listarg_){
+				temp = (ADecl)arg;
+				if(getTypeCode(temp.type_) == TypeCode.Type_void){
+					
+					throw new TypeException("Error DFun: Void arguments are not accepted");
+				}
 				funType.args.addLast(getTypeCode(((ADecl)arg).type_));
 			}
 			
@@ -215,6 +215,9 @@ public class TypeChecker {
 
 		public Object visit(SDecls p, Env env){
 			TypeCode type = getTypeCode(p.type_);
+			if(type == TypeCode.Type_void){
+				throw new TypeException("SDecls error: variable cannot be void");
+			}
 			for ( String s : p.listid_){
 			env.updateVar(s, type);
 			}
@@ -336,7 +339,7 @@ public class TypeChecker {
 
 		public TypeCode visit(EPostIncr p, Env env){
 			
-			TypeCode type = checkExpression(p.exp_, env);
+			TypeCode type = env.lookVar(p.id_);
 			if(type == TypeCode.Type_bool){
 				throw new TypeException("EPostIncr error : can't increment boolean");
 			}
@@ -344,7 +347,7 @@ public class TypeChecker {
 		}
 
 		public TypeCode visit(EPostDecr p, Env env){
-			TypeCode type = checkExpression(p.exp_, env);
+			TypeCode type = env.lookVar(p.id_);
 			if(type == TypeCode.Type_bool){
 				throw new TypeException("EPostDecr error : can't decrement boolean");
 			}
@@ -352,7 +355,7 @@ public class TypeChecker {
 		}
 
 		public TypeCode visit(EPreIncr p, Env env){ 
-			TypeCode type = checkExpression(p.exp_, env);
+			TypeCode type = env.lookVar(p.id_);
 			if(type == TypeCode.Type_bool){
 				throw new TypeException("EPreIncr error : can't increment boolean");
 			}
@@ -361,7 +364,7 @@ public class TypeChecker {
 		}
 
 		public TypeCode visit(EPreDecr p, Env env){
-			TypeCode type = checkExpression(p.exp_, env);
+			TypeCode type = env.lookVar(p.id_);
 			if(type == TypeCode.Type_bool){
 				throw new TypeException("EPreDecr error : can't decrement boolean");
 			}
@@ -499,8 +502,8 @@ public class TypeChecker {
 		}
 
 		public TypeCode visit(EAss p, Env env){
-			TypeCode type1 = checkExpression(p.exp_1, env);
-			TypeCode type2 = checkExpression(p.exp_2, env);
+			TypeCode type1 = env.lookVar(p.id_);
+			TypeCode type2 = checkExpression(p.exp_, env);
 			
 			if(type1 !=  type2){
 				throw new TypeException("EAss error : Expressions does not have the same type");

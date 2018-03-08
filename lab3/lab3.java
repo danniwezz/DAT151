@@ -1,7 +1,9 @@
 import java.io.*;
 import java_cup.runtime.*;
+import java.lang.*;
 import CPP.*;
 import CPP.Absyn.*;
+import java.util.*;
 
 public class lab3 {
   public static void main(String args[]) {
@@ -13,12 +15,25 @@ public class lab3 {
 
     Yylex l = null;
     String filePath = args[0];
+   // String fileName = args[0];
     try {
       l = new Yylex(new FileReader(filePath));
       parser p = new parser(l);
       CPP.Absyn.Program parseTree = p.pProgram();
       new TypeChecker().typecheck(parseTree);
-      new Compiler().compile(stripSuffix(stripPath(filePath)), parseTree);
+      
+      
+      new Compiler().compile(new File(filePath).getName(), parseTree);
+      /*int a = fileName.lastIndexOf("/");
+      
+      String segments[] = filePath.split("/");
+
+
+      fileName = fileName.substring(a+1, fileName.length() - 3);
+      filePath = segments[0];
+      //System.out.println(fileName);
+      //System.out.println(filePath);
+      new Compiler().compile(fileName, filePath, parseTree);*/
     }
     catch (TypeException e) {
       System.out.println("TYPE ERROR");

@@ -15,18 +15,20 @@ class Fun {
     }
 }
 
-class Label{
+
+
+abstract class Code {
+    public abstract <R> R accept (CodeVisitor<R> v);
+}
+
+class Label extends Code{
     public int label;
     public Label (int label) {
         this.label = label;
     }
-    public String toJVM() {
-      return "L" + label;
-    }
-}
-
-abstract class Code {
-    public abstract <R> R accept (CodeVisitor<R> v);
+    public <R> R accept (CodeVisitor<R> v) {
+        return v.visit(this);
+      }
 }
 
 class Comment extends Code {
@@ -235,6 +237,7 @@ class Add extends Code {
 
 
 interface CodeVisitor<R> {
+	public R visit (Label c);
     public R visit (Comment c);
     public R visit (Store c);
     public R visit (Load c);
@@ -259,9 +262,12 @@ interface CodeVisitor<R> {
 
 
 
-
 class CodeToJVM implements CodeVisitor<String> {
 
+	public String visit (Label c) {
+	    return "L" + c.label + ":\n";
+	  }
+	
   public String visit (Comment c) {
     return "\n  ;; " + c.comment;
   }

@@ -6,9 +6,8 @@ import CPP.Absyn.*;
 public class FunType {
   final Type returnType;
   final ListArg args;
-  final String ref;
-  public FunType (String javaRef, Type t, ListArg l) {
-	this.ref = javaRef;
+ 
+  public FunType ( Type t, ListArg l) {
     returnType = t;
     args = l;
   }
