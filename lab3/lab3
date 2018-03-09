@@ -1,11 +1,8 @@
-#!/bin/bash
+dir=`dirname $0`
+java -cp "$dir:$CLASSPATH" lab3 "$@" $PWD
+file="$@"
+file=${file%.*}
+filepath=${file%/*}
+file=$(basename $file)
 
-thisdir=`dirname $0`
-
-outdir=`dirname $1`
-file=`basename $1 .cc`
-jfile=$file.j
-
-java -cp "$thisdir:$CLASSPATH" lab3 "$1" | tee "$jfile"
-jasmin -d "$outdir" "$jfile"
-cp "${thisdir}/Runtime.class" "$outdir"
+java -jar jasmin.jar -d  "$PWD"/"$filepath"/ "$PWD"/"$filepath"/"$file".j

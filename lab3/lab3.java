@@ -8,22 +8,24 @@ import java.util.*;
 public class lab3 {
   public static void main(String args[]) {
 
-    if (args.length != 1) {
+    if (args.length !=  2) {
       System.err.println("Usage: lab3 <SourceFile>");
       System.exit(1);
     }
 
     Yylex l = null;
+    String targetPath = args[0];
     String filePath = args[0];
-   // String fileName = args[0];
+    System.out.println("targetPath: " +targetPath);
+    System.out.println("filename: " + filePath);
     try {
       l = new Yylex(new FileReader(filePath));
       parser p = new parser(l);
       CPP.Absyn.Program parseTree = p.pProgram();
       new TypeChecker().typecheck(parseTree);
-      
-      
-      new Compiler().compile(new File(filePath).getName(), parseTree);
+      //String path = new File(filePath).getName();
+
+      new Compiler().compile(stripSuffix(stripPath(filePath)), parseTree, targetPath + "/" + stripSuffix(filePath));
       /*int a = fileName.lastIndexOf("/");
       
       String segments[] = filePath.split("/");

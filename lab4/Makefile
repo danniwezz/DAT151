@@ -6,7 +6,7 @@ JAVAC_FLAGS = -sourcepath .
 JAVA = java
 
 # Name of generated .cup file for bnfc 2.8 master
-CUPFILE = Fun/_cup.cup
+CUPFILE = Fun/Fun.cup
 
 test_file = ./lab4
 

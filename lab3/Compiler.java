@@ -11,7 +11,7 @@ public class Compiler
   Map<String,Fun> sig;
 
   // Context mapping variable identifiers to their type.
-  List<Map<String,CxtEntry>> cxt;
+  LinkedList<Map<String,CxtEntry>> cxt;
 
   // Next free address for local variable;
   int nextLocal = 0;
@@ -45,7 +45,7 @@ public class Compiler
   public final Type VOID   = new Type_void  ();
 
   // name should be just the class name without file extension.
-  public void compile(String name, CPP.Absyn.Program p) {
+  public void compile(String name, CPP.Absyn.Program p, String filePath) {
     // Initialize output
     output = new LinkedList();
 
@@ -89,24 +89,20 @@ public class Compiler
 
     // Run compiler
     p.accept(new ProgramVisitor(), null);
+    File file = new File(filePath+".j");
     try{
-    	FileWriter writer = new FileWriter(name + ".j");
-
-
+    	PrintWriter writer = new PrintWriter("kalle" + ".j");
+    	
         for (String s: output) {
-          System.out.print(s);
+          //System.out.print(s);
           writer.write(s);
         }
         
         writer.close();
+        //Process process = java.lang.Runtime.getRuntime().exec("java -jar jasmin.jar " + filePath + ".j");
     }catch(IOException e){
     	e.printStackTrace();
     }
-    // Output result
-    for (String s: output) {
-        System.out.print(s);
-
-      }
 
   }
 
@@ -225,7 +221,7 @@ public class Compiler
     public Void visit(CPP.Absyn.SReturn p, Void arg)
     {
     	p.exp_.accept (new ExpVisitor(), null);
-    	emit (new Return (p.exp_.getType()));
+    	emit (new Return (INT));
     	returnFlag = true;
     	return null;
     }
@@ -252,7 +248,7 @@ public class Compiler
     // { ss }
     public Void visit(CPP.Absyn.SBlock p, Void arg)
     {
-    	cxt.addFirst(new TreeMap());
+    	cxt.add(0, new TreeMap());
     	for (Stm s: p.liststm_) {
     		s.accept(new StmVisitor(), arg);
     	}
@@ -370,7 +366,7 @@ public class Compiler
     // --x
     public Void visit(CPP.Absyn.EPreDecr p, Void arg)
     {
-        String x = p.id_;
+    	String x = p.id_;
         CxtEntry ce = lookupVar (x);
         emit (new Load (ce.type, ce.addr));
         emit (new IConst (1));
@@ -424,9 +420,9 @@ public class Compiler
         p.exp_2.accept(new ExpVisitor(), arg);
         Integer trueLabel = nextLabel;
         nextLabel++;
-        Integer falseLabel = nextlabel;
+        Integer falseLabel = nextLabel;
         nextLabel++;
-        emit(new IfIcmpLt(new Type_int(), nextLabel));
+        emit(new IfIcmpLt(nextLabel));
         nextLabel++;
         return null;
     }
@@ -438,9 +434,9 @@ public class Compiler
         p.exp_2.accept(new ExpVisitor(), arg);
         Integer trueLabel = nextLabel;
         nextLabel++;
-        Integer falseLabel = nextlabel;
+        Integer falseLabel = nextLabel;
         nextLabel++;
-        emit(new IfIcmpGt(new Type_int(), nextLabel));
+        emit(new IfIcmpGt(nextLabel));
         nextLabel++;
         return null;
     }
@@ -452,9 +448,9 @@ public class Compiler
         p.exp_2.accept(new ExpVisitor(), arg);
         Integer trueLabel = nextLabel;
         nextLabel++;
-        Integer falseLabel = nextlabel;
+        Integer falseLabel = nextLabel;
         nextLabel++;
-        emit(new IfIcmpLe(new Type_int(), nextLabel));
+        emit(new IfIcmpLe(nextLabel));
         nextLabel++;
         return null;
     }
@@ -466,9 +462,9 @@ public class Compiler
         p.exp_2.accept(new ExpVisitor(), arg);
         Integer trueLabel = nextLabel;
         nextLabel++;
-        Integer falseLabel = nextlabel;
+        Integer falseLabel = nextLabel;
         nextLabel++;
-        emit(new IfIcmpGe(new Type_int(), nextLabel));
+        emit(new IfIcmpGe(nextLabel));
         nextLabel++;
         return null;
     }
@@ -480,9 +476,9 @@ public class Compiler
         p.exp_2.accept(new ExpVisitor(), arg);
         Integer trueLabel = nextLabel;
         nextLabel++;
-        Integer falseLabel = nextlabel;
+        Integer falseLabel = nextLabel;
         nextLabel++;
-        emit(new IfIcmpEq(new Type_int(), nextLabel));
+        emit(new IfIcmpEq(nextLabel));
         nextLabel++;
         return null;
     }
@@ -494,9 +490,9 @@ public class Compiler
         p.exp_2.accept(new ExpVisitor(), arg);
         Integer trueLabel = nextLabel;
         nextLabel++;
-        Integer falseLabel = nextlabel;
+        Integer falseLabel = nextLabel;
         nextLabel++;
-        emit(new IfIcmpNe(new Type_int(), nextLabel));
+        emit(new IfIcmpNe(nextLabel));
         nextLabel++;
         return null;
     }
@@ -529,7 +525,7 @@ public class Compiler
     	nextLabel++;
     	
     	p.exp_1.accept(new ExpVisitor(), arg);
-    	emit(new IfEq(falseLabel));
+    	emit(new IfEq(trueLabel));
     	p.exp_2.accept(new ExpVisitor(), arg);
     	emit(new IConst(0));
     	emit(new Goto(endLabel));
@@ -542,11 +538,11 @@ public class Compiler
     // x = e
     public Void visit(CPP.Absyn.EAss p, Void arg)
     {
-      String x = TypeChecker.isVar(p.exp_1);
-      Integer nr =  p.exp_2.accept(new ExpVisitor(), arg);
-      p.exp2_.accept(new ExpVisitor(), arg);
-      emit(new Store(nr));
-      emit(new Load(nr));
+      String x = p.id_;
+      CxtEntry ce = lookupVar(p.id_);
+      p.exp_.accept(new ExpVisitor(), arg);
+      emit(new Store(ce.type, ce.addr));
+      emit(new Load(ce.type, ce.addr));
       return null;
     }
   }
@@ -569,19 +565,12 @@ public class Compiler
     	CxtEntry ent = (CxtEntry)context.get(x);
     	if(ent != null){
     		return ent;
+    	}else{
+    		throw new RuntimeException ("Impossible: scope is empty");
     	}
+ 
     }
-    if(cxt.get(0) == null){
-		throw new RuntimeError("LookupVar: context is empty");
-	} else{
-		for(Map context : ctx){
-			Iterator it = cxt.entrySet().iterator();
-			while(it.hasNext()){
-				Map.Entry pair = (Map.Entry)it.next();
-				it.remove();
-			}
-		}
-	}
+	
     throw new RuntimeException ("Impossible: unbound variable " + x);
   }
 
@@ -609,13 +598,22 @@ public class Compiler
   }
 
   class AdjustStack implements CodeVisitor<Void> {
-    public Void visit (Comment a){                   return null; }
-    public Void visit (Store a)  { decStack(a.type); return null; }
-    public Void visit (Load  a)  { incStack(a.type); return null; }
-    public Void visit (IConst c) { incStack(INT);    return null; }
-    public Void visit (Dup c)    { incStack(c.type); return null; }
-    public Void visit (Pop c)    { decStack(c.type); return null; }
-    public Void visit (Return c) { decStack(c.type); return null; }
+	  public Void visit (Label c)  	{ 					return null; }
+      public Void visit (Comment a)	{                   return null; }
+      public Void visit (Store a)  	{ decStack(a.type); return null; }
+      public Void visit (Load  a)  	{ incStack(a.type); return null; }
+      public Void visit (IConst c) 	{ incStack(INT);    return null; }
+      public Void visit (IfIcmpLt c){ 					return null; }
+      public Void visit (IfIcmpLe c){  					return null; }
+      public Void visit (IfIcmpEq c){  					return null; }
+      public Void visit (IfIcmpGt c){					return null; }
+      public Void visit (IfIcmpGe c){ 					return null; }
+      public Void visit (IfIcmpNe c){ 					return null; }
+      public Void visit (Goto c)	{ 					return null; }
+      public Void visit (IfEq c)	{ 					return null; }
+      public Void visit (Dup c)     { decStack(c.type); return null; }
+      public Void visit (Pop c)     { decStack(c.type); return null; }
+      public Void visit (Return c)  { decStack(c.type); return null; }
 
     public Void visit (Call c)   {
       FunType ft = c.fun.funType;
@@ -624,5 +622,8 @@ public class Compiler
       return null;
     }
     public Void visit (Add c)    { decStack(c.type); return null; }
+    public Void visit (Mul c)    { decStack(c.type); return null; }
+    public Void visit (Div c)    { decStack(c.type); return null; }
+    public Void visit (Sub c)    { decStack(c.type); return null; }
   }
 }

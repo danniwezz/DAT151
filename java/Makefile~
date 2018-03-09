@@ -44,4 +44,3 @@ vclean:
 	 rm -f Fun/Yylex Fun/Fun.cup Fun/Yylex.java Fun/VisitSkel.java Fun/ComposVisitor.java Fun/AbstractVisitor.java Fun/FoldVisitor.java Fun/AllVisitor.java Fun/PrettyPrinter.java Fun/Skeleton.java Fun/Test.java Fun/sym.java Fun/parser.java Fun/*.class
 	rm -f Makefile
 	rmdir -p Fun/
-
