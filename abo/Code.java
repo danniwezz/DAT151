@@ -22,8 +22,8 @@ abstract class Code {
 }
 
 class Label extends Code{
-    public int label;
-    public Label (int label) {
+    public String label;
+    public Label (String label) {
         this.label = label;
     }
     public <R> R accept (CodeVisitor<R> v) {
@@ -74,8 +74,8 @@ class IConst extends Code {
 }
 
 class IfIcmpLt extends Code {
-    public Integer gotoLabel;
-    public IfIcmpLt (Integer gotoLabel) {
+    public Label gotoLabel;
+    public IfIcmpLt (Label gotoLabel) {
         this.gotoLabel = gotoLabel;
     }
     public <R> R accept (CodeVisitor<R> v) {
@@ -84,8 +84,8 @@ class IfIcmpLt extends Code {
 }
 
 class IfIcmpLe extends Code {
-    public Integer gotoLabel;
-    public IfIcmpLe (Integer gotoLabel) {
+    public Label gotoLabel;
+    public IfIcmpLe (Label gotoLabel) {
         this.gotoLabel = gotoLabel;
     }
     public <R> R accept (CodeVisitor<R> v) {
@@ -94,8 +94,8 @@ class IfIcmpLe extends Code {
 }
 
 class IfIcmpEq extends Code {
-    public Integer gotoLabel;
-    public IfIcmpEq (Integer gotoLabel) {
+    public Label gotoLabel;
+    public IfIcmpEq (Label gotoLabel) {
         this.gotoLabel = gotoLabel;
     }
     public <R> R accept (CodeVisitor<R> v) {
@@ -104,8 +104,8 @@ class IfIcmpEq extends Code {
 }
 
 class IfIcmpGt extends Code {
-    public Integer gotoLabel;
-    public IfIcmpGt (Integer gotoLabel) {
+    public Label gotoLabel;
+    public IfIcmpGt (Label gotoLabel) {
         this.gotoLabel = gotoLabel;
     }
     public <R> R accept (CodeVisitor<R> v) {
@@ -114,8 +114,8 @@ class IfIcmpGt extends Code {
 }
 
 class IfIcmpGe extends Code {
-    public Integer gotoLabel;
-    public IfIcmpGe (Integer gotoLabel) {
+    public Label gotoLabel;
+    public IfIcmpGe (Label gotoLabel) {
         this.gotoLabel = gotoLabel;
     }
     public <R> R accept (CodeVisitor<R> v) {
@@ -124,9 +124,9 @@ class IfIcmpGe extends Code {
 }
 
 class Goto extends Code {
-    public Integer goToLabel;
-    public Goto (Integer label) {
-        this.goToLabel = label;
+    public Label gotoLabel;
+    public Goto (Label label) {
+        this.gotoLabel = label;
     }
     public <R> R accept (CodeVisitor<R> v) {
         return v.visit (this);
@@ -134,9 +134,9 @@ class Goto extends Code {
 }
 
 class IfIcmpNe extends Code {
-    public Integer goToLabel;
-    public IfIcmpNe (Integer label) {
-        this.goToLabel = label;
+    public Label gotoLabel;
+    public IfIcmpNe (Label label) {
+        this.gotoLabel = label;
     }
     public <R> R accept (CodeVisitor<R> v) {
         return v.visit (this);
@@ -144,9 +144,9 @@ class IfIcmpNe extends Code {
 }
 
 class IfEq extends Code {
-    public Integer goToLabel;
-    public IfEq (Integer label) {
-        this.goToLabel = label;
+    public Label gotoLabel;
+    public IfEq (Label label) {
+        this.gotoLabel = label;
     }
     public <R> R accept (CodeVisitor<R> v) {
         return v.visit (this);
@@ -265,7 +265,7 @@ interface CodeVisitor<R> {
 class CodeToJVM implements CodeVisitor<String> {
 
 	public String visit (Label c) {
-	    return "L" + c.label + ":\n";
+	    return c.label + ": \n";
 	  }
 	
   public String visit (Comment c) {
@@ -295,43 +295,43 @@ class CodeToJVM implements CodeVisitor<String> {
   }
   
   public String visit (IfIcmpLt c) {
-	  Integer label = c.gotoLabel;
-	    return "if_icmplt L" + label + "\n";
+	  Label label = c.gotoLabel;
+	    return "if_icmplt " + label.label + "\n";
   }
   
   public String visit (IfIcmpLe c) {
-	  Integer label = c.gotoLabel;
-	    return "if_icmple L" + label + "\n";
+	  Label label = c.gotoLabel;
+	    return "if_icmple " + label.label + "\n";
   }
   
   public String visit (IfIcmpEq c) {
-	  Integer label = c.gotoLabel;
-	    return "if_icmpeq L" + label + "\n";
+	  Label label = c.gotoLabel;
+	    return "if_icmpeq " + label.label + "\n";
   }
   
   public String visit (IfIcmpGt c) {
-	  Integer label = c.gotoLabel;
-	    return "if_icmpgt L" + label + "\n";
+	  Label label = c.gotoLabel;
+	    return "if_icmpgt " + label.label + "\n";
   }
   
   public String visit (IfIcmpGe c) {
-	  Integer label = c.gotoLabel;
-	    return "if_icmpge L" + label + "\n";
+	  Label label = c.gotoLabel;
+	    return "if_icmpge " + label.label + "\n";
   }
   
   public String visit (IfIcmpNe c) {
-	  Integer label = c.goToLabel;
-	    return "if_icmpne L" + label + "\n";
+	  Label label = c.gotoLabel;
+	    return "if_icmpne " + label.label + "\n";
   }
 
   public String visit (Goto c) {
-	  Integer label = c.goToLabel;
-	  return "goto L" + label + "\n";
+	  Label label = c.gotoLabel;
+	  return "goto " + label.label + "\n";
   }
   
   public String visit (IfEq c) {
-	  Integer label = c.goToLabel;
-	  return "ifeq L" + label + "\n";
+	  Label label = c.gotoLabel;
+	  return "ifeq " + label.label + "\n";
   }
   
   public String visit (Dup c) {

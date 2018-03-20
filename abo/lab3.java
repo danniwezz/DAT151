@@ -20,8 +20,8 @@ public class lab3 {
       parser p = new parser(l);
       CPP.Absyn.Program parseTree = p.pProgram();
       new TypeChecker().typecheck(parseTree);
-
-      new Compiler().compile(stripSuffix(stripPath(args[0])), parseTree);
+      System.out.println("WHOLE PATH: " + args[0]);
+      new Compiler().compile(stripSuffix(args[0]), parseTree);
 
     }
     catch (TypeException e) {
